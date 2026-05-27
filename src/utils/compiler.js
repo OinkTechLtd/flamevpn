@@ -123,8 +123,16 @@ class Compiler {
     }
 
     // Validation - Pawno style errors
-    if (!hasMain) {
+    const hasEventCallbacks = Array.from(definedFunctions).some(func => 
+      func.startsWith('On') || ['OnPlayerConnect', 'OnPlayerDisconnect', 'OnPlayerCommandText', 
+        'OnGameModeInit', 'OnGameModeExit', 'OnPlayerUpdate', 'OnPlayerText', 
+        'OnPlayerSpawn', 'OnPlayerDeath'].includes(func)
+    );
+    
+    if (!hasMain && !hasEventCallbacks) {
       errors.push('fatal error 021: no entry point (no public functions)');
+    } else if (!hasMain && hasEventCallbacks) {
+      warnings.push('Warning: No main() function, but event callbacks detected (valid for SA-MP gamemode)');
     }
 
     if (braceCount !== 0) {
