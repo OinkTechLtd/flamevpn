@@ -5,6 +5,7 @@ export const useAppStore = create((set, get) => ({
   user: null,
   isAuthenticated: false,
   agreedToTerms: false,
+  isAdmin: false, // Флаг администратора
   
   // Состояние редактора
   currentFile: null,
@@ -36,6 +37,7 @@ export const useAppStore = create((set, get) => ({
   setUser: (user) => set({ user, isAuthenticated: true }),
   logout: () => set({ user: null, isAuthenticated: false }),
   setAgreedToTerms: (agreed) => set({ agreedToTerms: agreed }),
+  setIsAdmin: (isAdmin) => set({ isAdmin }), // Установка флага админа
   
   // Действия для редактора
   setCurrentFile: (file) => set({ currentFile: file }),

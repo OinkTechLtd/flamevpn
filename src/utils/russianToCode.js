@@ -45,11 +45,14 @@ class RussianToCode {
       return `// ${comment}`;
     });
 
+    // Handle Russian characters in strings - keep them as is
+    // This allows Russian text in Print() and other functions
+    
     return converted;
   }
 
   static isRussian(text) {
-    return /[\u0400-\u04FF]/.test(text);
+    return /[а-яА-ЯёЁ]/.test(text);
   }
 
   static autoConvert(code) {
@@ -57,6 +60,24 @@ class RussianToCode {
       return this.convert(code);
     }
     return code;
+  }
+
+  static validateRussianKeywords(code) {
+    // Check if Russian keywords are properly converted
+    const russianKeywords = Object.keys(this.keywords);
+    const foundKeywords = [];
+    
+    russianKeywords.forEach(ru => {
+      const regex = new RegExp(`\\b${ru}\\b`, 'gi');
+      if (regex.test(code)) {
+        foundKeywords.push(ru);
+      }
+    });
+    
+    return {
+      hasRussian: foundKeywords.length > 0,
+      keywords: foundKeywords
+    };
   }
 }
 

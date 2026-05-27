@@ -8,12 +8,13 @@ import axios from 'axios';
 import { useAppStore } from '../store/appStore';
 
 const EditorPage = () => {
-  const { code, setCode, language, setLanguage, compileCode, isCompiling, compilationResult } = useAppStore();
+  const { code, setCode, language, setLanguage, compileCode, isCompiling, compilationResult, isAdmin } = useAppStore();
   const [fileName, setFileName] = useState('main.pwn');
   const [files, setFiles] = useState([]);
   const [showFileExplorer, setShowFileExplorer] = useState(true);
   const [showTerminal, setShowTerminal] = useState(true);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const fileInputRef = useRef(null);
   const zipInputRef = useRef(null);
 
@@ -124,6 +125,49 @@ const EditorPage = () => {
     }
   };
 
+  // Отправка пуш-уведомления (админ)
+  const handleSendPush = async () => {
+    const message = prompt('Введите текст уведомления:');
+    if (!message) return;
+    
+    try {
+      const response = await axios.post('/api/admin/push', {
+        message,
+        type: 'info'
+      });
+      
+      if (response.data.success) {
+        toast.success(`Уведомление отправлено ${response.data.sentCount} пользователям!`);
+      }
+    } catch (error) {
+      toast.error('Ошибка отправки уведомления');
+    }
+  };
+
+  // Просмотр логов пуш-уведомлений (админ)
+  const handleViewPushLogs = async () => {
+    try {
+      const response = await axios.get('/api/admin/push-logs');
+      const logs = response.data.logs;
+      
+      if (logs.length === 0) {
+        toast.info('Нет отправленных уведомлений');
+        return;
+      }
+      
+      let logText = '📋 Логи пуш-уведомлений:\n\n';
+      logs.forEach((log, i) => {
+        logText += `${i + 1}. "${log.message}"\n`;
+        logText += `   Получателей: ${log.recipientsCount}\n`;
+        logText += `   Время: ${new Date(log.timestamp).toLocaleString()}\n\n`;
+      });
+      
+      alert(logText);
+    } catch (error) {
+      toast.error('Ошибка получения логов');
+    }
+  };
+
   // Сохранение файла
   const handleSaveFile = () => {
     const blob = new Blob([code], { type: 'text/plain' });
@@ -206,6 +250,31 @@ const EditorPage = () => {
               className="btn-premium text-sm bg-red-600 hover:bg-red-700"
             >
               {isCompiling ? '⏳ Компиляция...' : '▶️ Компилировать'}
+            </button>
+
+            {/* Админ панель - только для админов */}
+            {isAdmin && (
+              <>
+                <button
+                  onClick={handleSendPush}
+                  className="btn-premium text-sm bg-purple-600 hover:bg-purple-700"
+                >
+                  📢 Отправить PUSH
+                </button>
+                <button
+                  onClick={handleViewPushLogs}
+                  className="btn-premium text-sm bg-blue-600 hover:bg-blue-700"
+                >
+                  📋 Логи PUSH
+                </button>
+              </>
+            )}
+
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className="btn-premium text-sm bg-gray-600 hover:bg-gray-700"
+            >
+              ⚙️ Настройки
             </button>
           </div>
         </div>
@@ -351,8 +420,73 @@ const EditorPage = () => {
         <div className="flex items-center gap-4">
           <span>✨ Coder-Pawno v1.0</span>
           <span>🎯 Premium Design 2026</span>
+          {isAdmin && <span className="text-purple-400">👑 ADMIN</span>}
         </div>
       </div>
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="glass-dark border border-premium-500/30 rounded-xl p-6 max-w-md w-full mx-4"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold gradient-text">⚙️ Настройки</h2>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Язык по умолчанию</label>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="input-premium w-full"
+                >
+                  <option value="pawno">Pawno (Pawn)</option>
+                  <option value="cpp">C++</option>
+                  <option value="python">Python</option>
+                  <option value="javascript">JavaScript</option>
+                </select>
+              </div>
+
+              <div className="pt-4 border-t border-gray-700">
+                <p className="text-xs text-gray-400 mb-2">
+                  💡 Загружайте ZIP архивы с проектами Pawno (CS SAMP CRMP MTA) 
+                  или другими языками программирования. Система автоматически 
+                  распакует и откроет все файлы как в VSCode!
+                </p>
+                <p className="text-xs text-gray-400">
+                  🌐 Пишите код на русском языке - наша система переведет его 
+                  в рабочий код автоматически!
+                </p>
+              </div>
+
+              <div className="pt-4 border-t border-gray-700">
+                <p className="text-xs text-green-400">
+                  ✅ Все функции работают в продакшене!
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowSettings(false)}
+                className="btn-premium"
+              >
+                Закрыть
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };

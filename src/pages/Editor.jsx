@@ -4,8 +4,9 @@ import { motion } from 'framer-motion';
 import { 
   FolderOpen, Download, Play, Settings, Bell, X, Maximize2,
   FileCode, ChevronRight, ChevronDown, Menu, Volume2, VolumeX,
-  Monitor, Smartphone, AlertCircle, Send
+  Monitor, Smartphone, AlertCircle, Send, Upload, Archive
 } from 'lucide-react';
+import JSZip from 'jszip';
 import PushNotification from '../components/PushNotification';
 import Compiler from '../utils/compiler';
 import RussianToCode from '../utils/russianToCode';
@@ -150,6 +151,96 @@ const EditorPage = () => {
         setFiles(prev => [...prev, { name: file.name, content }]);
         addNotification(`Файл ${file.name} загружен`, 'success');
         if (soundEnabled) playSound('startup');
+      }
+    };
+    input.click();
+  };
+
+  const loadZipProject = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.zip';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        setIsCompiling(true);
+        addNotification('Распаковка архива...', 'info');
+
+        const zip = new JSZip();
+        const zipContents = await zip.loadAsync(file);
+        
+        const loadedFiles = [];
+        let mainFile = null;
+        let mainCode = '';
+
+        // Process all files in the zip
+        const filePromises = Object.keys(zipContents.files).map(async (filename) => {
+          const zipFile = zipContents.files[filename];
+          
+          if (zipFile.dir) return; // Skip directories
+          
+          // Skip common non-code files
+          if (filename.endsWith('/') || 
+              filename.includes('__MACOSX') || 
+              filename.startsWith('.') ||
+              filename.includes('node_modules')) {
+            return;
+          }
+
+          const ext = filename.split('.').pop().toLowerCase();
+          const supportedExts = ['pwn', 'txt', 'js', 'py', 'cpp', 'c', 'java', 'inc', 'sma'];
+          
+          if (!supportedExts.includes(ext)) return;
+
+          try {
+            const content = await zipFile.async('text');
+            loadedFiles.push({ name: filename, content });
+
+            // Look for main file (.pwn for Pawno, .js for JS, etc.)
+            if (!mainFile && (ext === 'pwn' || ext === 'js' || ext === 'py')) {
+              // Prefer files named "main" or the first one found
+              if (filename.toLowerCase().includes('main') || !mainFile) {
+                mainFile = filename;
+                mainCode = content;
+              }
+            }
+          } catch (error) {
+            console.error(`Error reading ${filename}:`, error);
+          }
+        });
+
+        await Promise.all(filePromises);
+
+        if (loadedFiles.length === 0) {
+          addNotification('Нет поддерживаемых файлов в архиве', 'error');
+          setIsCompiling(false);
+          return;
+        }
+
+        // Set all files
+        setFiles(loadedFiles);
+
+        // Load main file into editor or the first .pwn file
+        if (mainFile) {
+          setCode(mainCode);
+          setCurrentFile(mainFile);
+          addNotification(`Проект загружен: ${loadedFiles.length} файл(ов)`, 'success');
+        } else {
+          const firstFile = loadedFiles[0];
+          setCode(firstFile.content);
+          setCurrentFile(firstFile.name);
+          addNotification(`Проект загружен: ${loadedFiles.length} файл(ов)`, 'success');
+        }
+
+        if (soundEnabled) playSound('startup');
+      } catch (error) {
+        console.error('Error loading ZIP:', error);
+        addNotification('Ошибка при распаковке архива', 'error');
+        if (soundEnabled) playSound('error');
+      } finally {
+        setIsCompiling(false);
       }
     };
     input.click();
@@ -453,18 +544,29 @@ const EditorPage = () => {
                 <button
                   onClick={loadProject}
                   className="btn-secondary"
-                  style={{ flex: 1, padding: '8px', fontSize: '13px' }}
+                  style={{ flex: 1, padding: '8px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 >
-                  Загрузить
+                  <FileCode size={14} />
+                  Файл
                 </button>
                 <button
-                  onClick={downloadProject}
+                  onClick={loadZipProject}
                   className="btn-primary"
-                  style={{ flex: 1, padding: '8px', fontSize: '13px' }}
+                  style={{ flex: 1, padding: '8px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 >
-                  Скачать
+                  <Archive size={14} />
+                  ZIP
                 </button>
               </div>
+
+              <button
+                onClick={downloadProject}
+                className="btn-secondary"
+                style={{ width: '100%', padding: '8px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginBottom: '16px' }}
+              >
+                <Download size={14} />
+                Скачать проект
+              </button>
 
               {files.length > 0 && (
                 <div>
